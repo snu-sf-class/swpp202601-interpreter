@@ -1,0 +1,12 @@
+/target
+/swpp202401-benchmarks
+
+*.json
+*.log
+*.py
+*.pdf
+test.sh
+
+.DS_Store
+/logs
+.vscode
