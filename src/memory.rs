@@ -142,22 +142,21 @@ impl SwppMemory {
       .collect()
   }
 
-  /// Apply heat to affected sectors and return the extra cost
-  fn apply_heat_and_cost(heat_map: &mut BTreeMap<u64, u64>, affected_sectors: &[u64]) -> u64 {
-    let mut total_extra_cost = 0u64;
+  /// Apply heat to affected sectors and return the extra cost from the directly accessed sector.
+  fn apply_heat_and_cost(
+    heat_map: &mut BTreeMap<u64, u64>,
+    cost_sector: u64,
+    affected_sectors: &[u64],
+  ) -> u64 {
+    let extra_cost = heat_map.get(&cost_sector).copied().unwrap_or(0) / HEAT_COST_DIVISOR;
 
     for &sector_idx in affected_sectors {
-      // Get current heat before update
       let current_heat = *heat_map.get(&sector_idx).unwrap_or(&0);
-      let extra_cost = current_heat / HEAT_COST_DIVISOR;
-      total_extra_cost += extra_cost;
-
-      // Apply heat increase (capped at HEAT_CAP_PER_SECTOR)
       let new_heat = (current_heat + HEAT_INCREASE_PER_ACCESS).min(HEAT_CAP_PER_SECTOR);
       heat_map.insert(sector_idx, new_heat);
     }
 
-    total_extra_cost
+    extra_cost
   }
 
   /// Stack accesses no longer participate in the heat model.
@@ -168,14 +167,15 @@ impl SwppMemory {
   /// Cost of accessing heap with given address and size (includes heat penalty and applies heat)
   /// Returns (extra_cost, affected_sectors)
   pub fn cost_heap(&mut self, addr: u64, size: AccessSize) -> (u64, Vec<u64>) {
-    let bandwidth = size as u64;
+    let bandwidth = u64::from(size);
     let (allocation_start, allocation_size) = self
       .heap
       .get_allocation_bounds(addr)
       .expect("heap heat must be computed only for valid heap addresses");
     let affected_sectors =
       Self::get_affected_heap_sectors(addr, bandwidth, allocation_start, allocation_size);
-    let extra_cost = Self::apply_heat_and_cost(&mut self.heap_heat, &affected_sectors);
+    let cost_sector = addr / SECTOR_SIZE;
+    let extra_cost = Self::apply_heat_and_cost(&mut self.heap_heat, cost_sector, &affected_sectors);
     (extra_cost, affected_sectors)
   }
 

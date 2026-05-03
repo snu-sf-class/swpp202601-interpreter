@@ -43,6 +43,11 @@ To also collect per-test interpreter logs under `logs/`, run:
 | `aload_overwrite_cancels_debt.s` | Overwriting an unresolved `aload` destination should cancel the pending debt. | `42` | `8384` |
 | `aload_wait_on_operand_use.s` | Using an unresolved `aload` result as an operand should wait at use time. | `0` | `8444` |
 | `aload_wait_paid_by_intervening_load.s` | An intervening instruction should partially resolve `aload` debt before the value is used. | `0` | `8464` |
+| `aload_parallel_resolve_multiple.s` | Multiple outstanding `aload` debts should all be reduced by each intervening instruction's elapsed cost. | `0` | `69` |
+| `aload_parallel_resolve_fma_cancel.s` | Fused mul/add should cancel only the deferred mul cost; the add cost still reduces all outstanding `aload` debts. | `0` | `69` |
+| `aload_parallel_resolve_fma_flush.s` | A non-fused pending mul flush and the following instruction should both reduce all outstanding `aload` debts. | `0` | `69` |
+| `aload_parallel_resolve_to_zero.s` | Fully resolved `aload` debts should be removed without disrupting parallel debt resolution. | `0` | `93` |
+| `aload_two_operand_use.s` | Using two different unresolved `aload` results in one instruction should charge only the remaining parallel wait. | `0` | `79` |
 
 ## Heat Memory Tests
 
@@ -50,12 +55,14 @@ To also collect per-test interpreter logs under `logs/`, run:
 | --- | --- | --- | --- |
 | `heat_applied_on_aload_issue.s` | `aload` should heat memory when issued, even before the loaded value is consumed. | `0` | `8545` |
 | `heat_compare_aload_then_load.s` | Contrast case combining `aload`, later loads, and debt waiting. | `0` | `8594` |
-| `heat_compare_neighbor_chain.s` | Contrast case for how a wider access heats neighboring sectors over repeated reuse. | `0` | `16765` |
+| `heat_compare_neighbor_chain.s` | Contrast case for how a wider access heats neighboring sectors over repeated reuse. | `0` | `16845` |
 | `heat_compare_same_sector_chain.s` | Verifies repeated stack accesses now stay at base cost because stack heat is disabled. | `0` | `131` |
 | `heat_cooldown_between_accesses.s` | Verifies inserted arithmetic no longer matters for stack-memory cost because stack heat is disabled. | `0` | `131` |
 | `heat_heap_allocation_boundary.s` | Verifies heat does not spread from one heap allocation into an adjacent separately allocated block. | `0` | `16815` |
 | `heat_heap_baseline.s` | Minimal heap heat sanity check without output. | *(empty)* | `8613` |
-| `heat_neighbor_spread.s` | Verifies a wider access heats neighboring 8-byte sectors. | `0` | `16675` |
+| `heat_neighbor_spread.s` | Verifies a wider access heats neighboring 8-byte sectors. | `0` | `16715` |
+| `heat_reported_offset32.s` | Regression for an 8-byte heap load heating the sector at `r1+32`. | *(empty)* | `41261` |
+| `heat_reverse_neighbor_no_penalty.s` | Verifies heat spread and direct-sector penalty are not treated symmetrically. | *(empty)* | `16645` |
 | `heat_repeat_heap_loads.s` | Repeated heap loads from the same byte should become more expensive. | `0` | `8643` |
 | `heat_repeat_stack_loads.s` | Verifies repeated stack loads stay flat at base cost because only heap memory is heated. | `0` | `131` |
 

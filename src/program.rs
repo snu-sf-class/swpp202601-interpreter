@@ -49,7 +49,7 @@ pub struct SwppState {
   functions: HashMap<String, SwppFunction>,
   /// Current execution context, which contains the name of function and block currently being executed.
   cur_context: SwppContext,
-  /// Outstanding async load debts: register -> debt amount
+  /// Outstanding async load debts: register -> debt amount.
   aload_debts: HashMap<SwppRegisterName, u64>,
   /// Deferred mul/div/rem cost that may be canceled by the immediately following add/sub.
   pending_fma_cost: Option<PendingFmaCost>,
@@ -229,34 +229,25 @@ impl SwppState {
     self.aload_debts.remove(reg);
   }
 
-  /// Resolve async load debts using instruction cost, excluding specified register
+  /// Resolve async load debts using elapsed instruction cost, excluding the
+  /// freshly-created async-load result when needed.
   pub fn resolve_aload_debts(
     &mut self,
     instruction_cost: u64,
     exclude_reg: Option<&SwppRegisterName>,
   ) {
-    let mut total_resolved = 0u64;
-    let mut debts_to_remove = Vec::new();
+    if instruction_cost == 0 {
+      return;
+    }
 
-    for (reg, debt) in &mut self.aload_debts {
-      if exclude_reg.map_or(true, |exclude| reg != exclude) {
-        let resolve_amount = (*debt).min(instruction_cost - total_resolved);
-        *debt -= resolve_amount;
-        total_resolved += resolve_amount;
-
-        if *debt == 0 {
-          debts_to_remove.push(reg.clone());
-        }
-
-        if total_resolved >= instruction_cost {
-          break;
-        }
+    self.aload_debts.retain(|reg, debt| {
+      if exclude_reg.map_or(false, |exclude| reg == exclude) {
+        true
+      } else {
+        *debt = debt.saturating_sub(instruction_cost);
+        *debt > 0
       }
-    }
-
-    for reg in debts_to_remove {
-      self.aload_debts.remove(&reg);
-    }
+    });
   }
 
   /// Read from register, paying back any outstanding debt
